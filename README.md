@@ -19,9 +19,9 @@ sudo certbot --apache
 
 ### Strict Transport Security:
 ```bash
-    <IfModule mod_headers.c>
-      Header always set Strict-Transport-Security "max-age=15552000; includeSubDomains"
-    </IfModule>
+<IfModule mod_headers.c>
+  Header always set Strict-Transport-Security "max-age=15552000; includeSubDomains"
+</IfModule>
 ```
 ^- *added after server name, before directory block (note-* ***AFTER*** *setting up lets encrypt*
 
@@ -46,4 +46,59 @@ sudo apt install libmagickcore-6.q16-6-extra
 ### Enable adding an SMB/CIFS share
 ```bash
 sudo apt install smbclient
+```
+
+### Cache
+```bash
+sudo apt install php-apcu
+sudo systemctl restart apache2
+```
+In the Nextcloud config:
+```bash
+sudo nano config.php
+
+...
+'memcache.local' => '\OC\Memcache\APCu',
+```
+
+### Fail2Ban
+Install:
+```bash
+sudo apt install fail2ban
+sudo fail2ban-client status
+```
+
+Edit config: `sudo nano /etc/fail2ban/filter.d/nextcloud.conf`
+```bash
+[Definition]
+_groupsre = (?:(?:,?\s*"\w+":(?:"[^"]+"|\w+))*)
+failregex = ^\{%(_groupsre)s,?\s*"remoteAddr":"<HOST>"%(_groupsre)s,?\s*"message":"Login failed:
+            ^\{%(_groupsre)s,?\s*"remoteAddr":"<HOST>"%(_groupsre)s,?\s*"message":"Trusted domain error.
+datepattern = ,?\s*"time"\s*:\s*"%%Y-%%m-%%d[T ]%%H:%%M:%%S(%%z)?"
+```
+
+Check status:
+```bash
+sudo fail2ban-client status
+```
+
+Create jail: `sudo nano /etc/fail2ban/jail.d/nextcloud.local`
+```bash
+[nextcloud]
+backend = auto
+enabled = true
+port = 80,443
+protocol = tcp
+filter = nextcloud
+maxretry = 3
+bantime = 86400
+findtime = 43200
+logpath = /srv/nextcloud/data/nextcloud.log
+```
+^- *ensure log path is correct*  
+
+Restart, and check status:
+```bash
+sudo systemctl restart fail2ban
+sudo fail2ban-client status nextcloud
 ```
